@@ -29,6 +29,9 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
 
+      - name: Temporary cancellation probe delay
+        run: sleep 300
+
       - name: Install Python from .python-version
         run: uv python install "$(cat .python-version)"
 
