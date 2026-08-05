@@ -19,4 +19,5 @@ cookie*.json
 *.cookie
 *.cookies
 data/private/
-data/raw/yahoo/
+data/raw/yahoo/*
+!data/raw/yahoo/README.md
