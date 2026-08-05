@@ -177,6 +177,18 @@ def test_default_state_factory_uses_secure_random_source(
             {"state": [STATE], "error": ["access_denied"]},
             "declined or could not complete",
         ),
+        (
+            {"state": [STATE], "code": [AUTHORIZATION_CODE], "error": [""]},
+            "declined or could not complete",
+        ),
+        (
+            {
+                "state": [STATE],
+                "code": [AUTHORIZATION_CODE],
+                "error": ["access_denied", "server_error"],
+            },
+            "declined or could not complete",
+        ),
     ],
 )
 def test_invalid_callback_does_not_exchange_or_save(

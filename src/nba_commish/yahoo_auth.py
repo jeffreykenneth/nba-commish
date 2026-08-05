@@ -287,7 +287,7 @@ def authorize(
         raise AuthorizationError(
             "Yahoo callback state was missing or did not match; no token was saved."
         )
-    if _one_callback_value(callback, "error") is not None:
+    if "error" in callback:
         raise AuthorizationError(
             "Yahoo declined or could not complete authorization; no token was saved."
         )
