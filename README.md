@@ -38,8 +38,9 @@ remain authoritative.
 
 Yahoo credentials are loaded from the process environment through the typed
 `YahooSettings` loader. Use [`.env.example`](.env.example) as a reference and
-provide the required values in the environment of the process that runs the
-application, for example:
+provide all three required values in the environment of the process that runs
+the application. The redirect URI must use `http` with a loopback host such as
+`localhost` or `127.0.0.1`, for example:
 
 ```bash
 export YAHOO_CLIENT_ID="your-client-id"
@@ -47,7 +48,27 @@ export YAHOO_CLIENT_SECRET="your-client-secret"
 export YAHOO_REDIRECT_URI="http://localhost:8000/auth/yahoo/callback"
 ```
 
-Then load and validate the settings at the application boundary:
+Register that exact redirect URI in the Yahoo application's OAuth settings.
+The scheme, host, port, and path must match `YAHOO_REDIRECT_URI` exactly.
+
+Start initial authorization with:
+
+```bash
+uv run python -m nba_commish.yahoo_auth
+```
+
+The command listens on the configured loopback host, port, and path, prints the
+Yahoo consent URL, and attempts to open it in the default browser. Complete the
+consent flow within five minutes. On success, the command atomically saves the
+token to the local-only path `data/private/yahoo/oauth-token.json`; on failure
+or timeout it exits non-zero without replacing an existing token.
+
+To reauthorize safely, stop any process using the current token, move or delete
+`data/private/yahoo/oauth-token.json`, and run the command again. If
+authorization fails after moving the token, restore the old file if it is still
+needed. Do not edit token JSON by hand.
+
+Application code can load and validate the settings at its boundary:
 
 ```python
 from nba_commish.config import YahooSettings
@@ -55,11 +76,11 @@ from nba_commish.config import YahooSettings
 settings = YahooSettings.from_env()
 ```
 
-The loader does not read `.env`, `oauth2.json`, or any other credential file,
-and it does not create, persist, validate, or refresh OAuth tokens. OAuth token
-handling belongs to a separate Yahoo adapter. Do not commit a populated `.env`
-file, an OAuth token file, cookies, or raw authenticated Yahoo payloads; these
-local artifacts are ignored by Git.
+The application does not read `.env`, `oauth2.json`, or any other credential
+file. In particular, `oauth2.json` files created by other Yahoo OAuth tools are
+not used. Do not commit a populated `.env` file, an OAuth token file, cookies,
+or raw authenticated Yahoo payloads; these local artifacts are ignored by Git.
+The initial-authorization command does not refresh expired tokens.
 
 ## Dependabot updates
 
