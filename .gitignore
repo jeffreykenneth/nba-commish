@@ -3,3 +3,20 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.py[cod]
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+oauth2.json
+oauth*.json
+*.token.json
+tokens/
+
+# Session state and authenticated/private API payloads
+cookie*.txt
+cookie*.json
+*.cookie
+*.cookies
+data/private/
+data/raw/yahoo/

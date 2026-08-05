@@ -34,6 +34,33 @@ run the manual quality-check commands above without installing the hooks. The
 GitHub Actions checks from [#37](https://github.com/jeffreykenneth/nba-commish/issues/37)
 remain authoritative.
 
+## Yahoo configuration
+
+Yahoo credentials are loaded from the process environment through the typed
+`YahooSettings` loader. Use [`.env.example`](.env.example) as a reference and
+provide the required values in the environment of the process that runs the
+application, for example:
+
+```bash
+export YAHOO_CLIENT_ID="your-client-id"
+export YAHOO_CLIENT_SECRET="your-client-secret"
+export YAHOO_REDIRECT_URI="http://localhost:8000/auth/yahoo/callback"
+```
+
+Then load and validate the settings at the application boundary:
+
+```python
+from nba_commish.config import YahooSettings
+
+settings = YahooSettings.from_env()
+```
+
+The loader does not read `.env`, `oauth2.json`, or any other credential file,
+and it does not create, persist, validate, or refresh OAuth tokens. OAuth token
+handling belongs to a separate Yahoo adapter. Do not commit a populated `.env`
+file, an OAuth token file, cookies, or raw authenticated Yahoo payloads; these
+local artifacts are ignored by Git.
+
 ## Dependabot updates
 
 Dependabot monitors the project’s uv dependencies (`pyproject.toml` and
