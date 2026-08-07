@@ -34,6 +34,40 @@ run the manual quality-check commands above without installing the hooks. The
 GitHub Actions checks from [#37](https://github.com/jeffreykenneth/nba-commish/issues/37)
 remain authoritative.
 
+## Hoopshype salary import
+
+The Hoopshype importer uses a fresh, headless Chromium context to read the
+public, unauthenticated players-salary table. Install the uv-managed Python
+environment and its matching Chromium binary before the first import:
+
+```bash
+uv sync --locked
+uv run playwright install chromium
+```
+
+Run one explicitly selected salary season and write the unreviewed live output
+under the ignored private working directory:
+
+```bash
+uv run python -m nba_commish.hoopshype_import --season 2026-27 --output data/private/hoopshype/player-salaries--season-2026-27--20260807t200000z.json
+```
+
+The importer verifies the displayed season and `All salaries` controls, visits
+every rendered paginator page, preserves every physical row and displayed
+salary-season cell in source order, reconciles its page and row totals, and
+then publishes one JSON artifact atomically. The output path must be new; an
+existing artifact is accepted only when its bytes are already identical and is
+otherwise never replaced. A malformed season is rejected before Chromium is
+launched. Any navigation, timeout, table-structure, pagination, reconciliation,
+or write failure exits non-zero without leaving a new final artifact or
+replacing an existing one.
+
+Only the public Hoopshype page is used. The command does not reuse a signed-in
+profile, persist cookies or browser storage, bypass access controls, or print
+response bodies or session material. Live salary data changes independently of
+this repository, so page counts and row counts must be read from each completed
+artifact and must never be hard-coded from an earlier capture.
+
 ## Yahoo configuration
 
 Yahoo credentials are loaded from the process environment through the typed
