@@ -47,3 +47,27 @@ class AggregationValidationError(AggregationError):
 
 class AggregationDecisionError(AggregationError):
     """Raised when a commissioner decision is invalid or cannot be applied."""
+
+
+class CsvFallbackError(HoopshypeImportError):
+    """Base class for expected commissioner CSV fallback failures."""
+
+
+class CsvFallbackValidationError(CsvFallbackError):
+    """Raised with deterministic sanitized input-validation diagnostics."""
+
+    def __init__(self, diagnostics: tuple[object, ...]) -> None:
+        self.diagnostics = diagnostics
+        rendered = "\n".join(f"- {diagnostic}" for diagnostic in diagnostics)
+        super().__init__(
+            f"CSV fallback validation failed with {len(diagnostics)} error(s):"
+            + (f"\n{rendered}" if rendered else "")
+        )
+
+
+class CsvFallbackArtifactError(CsvFallbackError):
+    """Raised when a derived fallback artifact is invalid or cannot publish."""
+
+
+class CsvFallbackReconciliationError(CsvFallbackError):
+    """Raised when canonical fallback/browser reconciliation is unsafe."""
