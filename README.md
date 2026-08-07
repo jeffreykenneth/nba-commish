@@ -148,6 +148,75 @@ represent the same real-world contract. Collapsed presentations must therefore
 remain auditable through their occurrence trail; applicability and contract
 interpretation belong to later review work.
 
+### Salary-row aggregation and review policy
+
+`aggregate_salary_rows` is a pure in-memory boundary over an issue-#21
+`DeduplicationResult`, one selected consecutive ASCII `yyyy-yy` season, and an
+optional commissioner-decision mapping. It accepts neither raw/pre-deduplication
+rows nor a bare list. Before producing any result it validates every unique
+row, recomputes its fingerprint from all remaining canonical fields, requires
+exactly one retained selected-season cell, and reconciles every occurrence and
+representative relationship. It does no source collection, CSV import, team
+mapping, Yahoo matching, fuzzy matching, or caller mutation.
+
+Rows are grouped by the persisted fingerprint-v1 player discriminator:
+numeric `player_id`, otherwise the canonical nonempty `player_url`, otherwise
+the NFC-normalized, whitespace-collapsed, case-folded `player_display_text`.
+A linked or identified row is therefore distinct from a linkless display-name
+fallback even when their displayed names match. Team/logo evidence never joins
+players. Groups keep first appearance order, dispositions keep first-seen
+unique-row order, and each disposition retains a deep copy of its raw row plus
+all issue-#21 occurrences in original order.
+
+Every unique row receives exactly one of `included`, `excluded`, or
+`review_required`. The Phase 0 default policy is deliberately conservative:
+
+| Condition, in precedence order | Status | Stable reason code | Effect |
+| --- | --- | --- | --- |
+| Target salary is null | `excluded` | `no_salary_amount` | Retain row and occurrences; contribute nothing. |
+| Non-null row has a nonempty target marker or non-null canonical description | `review_required` | `source_evidence_requires_review` | Preserve evidence; infer no applicability. |
+| Source-player group has multiple distinct non-null rows | `review_required` | `multiple_non_null_rows` | Review every otherwise ordinary non-null row. |
+| Group has one non-null row with empty marker and null description | `included` | `single_ordinary_non_null_row` | Include once under the visible, overrideable default. |
+
+Integer zero is a real non-null amount and follows the ordinary policy. A
+group containing one ordinary non-null row and any number of null rows includes
+the non-null row and excludes the null rows. Descriptions such as `waived`,
+`dead money`, or `partial season` remain unclassified source text and require
+review; no substring or regular-expression rule assigns contract purpose.
+Exact target marker `TW` is labeled only as Hoopshype evidence for a two-way
+contract. It does not automatically include or exclude that salary, and every
+other nonempty or unknown marker also requires review.
+
+Commissioner decisions are keyed by an existing fingerprint and contain
+exactly a final `status` of `included` or `excluded` plus a nonempty
+human-readable `reason`:
+
+```python
+decisions = {
+    "hoopshype-row-v1:sha256:<64 lowercase hex>": {
+        "status": "included",
+        "reason": "Reviewed against the source evidence.",
+    }
+}
+```
+
+A decision can override any non-null default disposition, or restate a null
+row's exclusion; a null row can never be included. Unknown fingerprints,
+duplicate decisions, unsupported statuses, and missing or empty reasons reject
+the complete call. Source marker, description, amount, identity, fingerprint,
+raw row, and occurrence provenance are never rewritten. Commissioner results
+use stable reason codes `commissioner_included` or `commissioner_excluded`,
+retain the supplied human reason, and record `decision_source` as
+`commissioner`; all other results record `default`.
+
+Each player result exposes all row dispositions and included/excluded/review
+subsets, an exact `included_subtotal_dollars`, unresolved-review count,
+nullable `total_salary_dollars`, and completion status. The subtotal always
+sums included non-null Python integers exactly, without fixed-width or
+floating-point conversion. It becomes the final total only when no row remains
+`review_required`; otherwise `total_salary_dollars` is `None` and completion is
+`review_required`, so a partial subtotal cannot be mistaken for a final salary.
+
 ## Yahoo configuration
 
 Yahoo credentials are loaded from the process environment through the typed

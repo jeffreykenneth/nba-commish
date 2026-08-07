@@ -35,3 +35,15 @@ class FingerprintValidationError(FingerprintError):
 
 class FingerprintCollisionError(FingerprintError):
     """Raised when equal digests correspond to different canonical payloads."""
+
+
+class AggregationError(HoopshypeImportError):
+    """Base class for expected salary aggregation failures."""
+
+
+class AggregationValidationError(AggregationError):
+    """Raised when deduplicated rows or occurrence provenance are invalid."""
+
+
+class AggregationDecisionError(AggregationError):
+    """Raised when a commissioner decision is invalid or cannot be applied."""
