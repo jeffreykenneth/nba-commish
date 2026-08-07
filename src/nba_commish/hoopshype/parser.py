@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import Any, ClassVar
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from nba_commish.hoopshype.errors import SourceStructureError
 from nba_commish.hoopshype.models import PageSnapshot
@@ -90,6 +90,11 @@ def parse_page(
             raise SourceStructureError(
                 f"Missing team logo on page {page_number}, row {row_position}."
             )
+        team_logo_url = _full_team_logo_url(
+            row.team_logo_url,
+            page_number=page_number,
+            row_position=row_position,
+        )
         if len(row.salary_cells) != len(salary_headings):
             raise SourceStructureError(
                 f"Unexpected salary-cell count on page {page_number}, row {row_position}."
@@ -110,8 +115,8 @@ def parse_page(
                 "player_display_text": row.player_display_text,
                 "player_url": row.player_url,
                 "player_id": _trailing_player_id(row.player_url),
-                "team_logo_url": row.team_logo_url,
-                "team_logo_asset_id": _team_logo_asset_id(row.team_logo_url),
+                "team_logo_url": team_logo_url,
+                "team_logo_asset_id": _team_logo_asset_id(team_logo_url),
                 "target_season_salary_text": target_cell.salary_text,
                 "target_season_marker_text": target_cell.marker_text,
                 "source_row_description": row.source_row_description,
@@ -238,6 +243,45 @@ def _team_logo_asset_id(team_logo_url: str) -> int | None:
     path = urlsplit(team_logo_url).path
     match = _TEAM_ASSET_PATTERN.search(path)
     return int(match.group(1)) if match else None
+
+
+def _full_team_logo_url(
+    value: str,
+    *,
+    page_number: int,
+    row_position: int,
+) -> str:
+    message = (
+        f"Invalid team logo URL on page {page_number}, row {row_position}: "
+        "expected a full public HTTP(S) URL or a resolvable relative URL."
+    )
+    if (
+        value != value.strip()
+        or any(character.isspace() for character in value)
+        or "\\" in value
+    ):
+        raise SourceStructureError(message)
+    try:
+        supplied = urlsplit(value)
+        if supplied.scheme and (
+            supplied.scheme not in {"http", "https"} or not supplied.hostname
+        ):
+            raise SourceStructureError(message)
+        if value.startswith("//") and not supplied.hostname:
+            raise SourceStructureError(message)
+        resolved = urljoin(PUBLIC_SOURCE_URL, value)
+        parsed = urlsplit(resolved)
+        hostname = parsed.hostname
+    except ValueError as error:
+        raise SourceStructureError(message) from error
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise SourceStructureError(message)
+    return resolved
 
 
 class _Node:

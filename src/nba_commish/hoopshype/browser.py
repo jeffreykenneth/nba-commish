@@ -101,7 +101,7 @@ _EXTRACT_SCRIPT = r"""
       rank_text: clean((cells[0] || {}).innerText),
       player_display_text: clean((link || identityCell || {}).innerText),
       player_url: link ? link.getAttribute("href") : null,
-      team_logo_url: logo ? logo.getAttribute("src") : "",
+      team_logo_url: logo ? logo.src : "",
       source_row_description: row.hasAttribute("data-description")
         ? row.getAttribute("data-description")
         : row.getAttribute("aria-description"),

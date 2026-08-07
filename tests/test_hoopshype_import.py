@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from os import PathLike, link
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -207,6 +209,74 @@ def test_no_link_player_is_valid_and_team_evidence_is_not_mapped() -> None:
     assert row["player_id"] is None
     assert row["team_logo_asset_id"] == 9
     assert not any(key in row for key in ("team", "team_name", "team_abbreviation"))
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            "/content-pipeline-sports-images/sports2/nba/logos/9.png",
+            (
+                "https://www.hoopshype.com/content-pipeline-sports-images/"
+                "sports2/nba/logos/9.png"
+            ),
+        ),
+        (
+            "//cdn.example.test/sports2/nba/logos/9.png?width=30",
+            "https://cdn.example.test/sports2/nba/logos/9.png?width=30",
+        ),
+    ],
+)
+def test_relative_team_logo_urls_are_resolved_before_emission(
+    source: str, expected: str
+) -> None:
+    row = _row("Relative Logo")
+    row["team_logo_url"] = source
+    parsed = _collect(_snapshot(1, 1, rows=[row])).rows[0]
+
+    assert parsed["team_logo_url"] == expected
+    parts = urlsplit(parsed["team_logo_url"])
+    assert parts.scheme in {"http", "https"}
+    assert parts.netloc
+    assert parsed["team_logo_asset_id"] == 9
+
+
+def test_saved_html_relative_team_logo_url_is_resolved() -> None:
+    html = """
+    <thead><tr><th></th><th>Player</th><th>2026-27</th></tr></thead>
+    <tr><td>1</td><td><img src="/sports2/nba/logos/12.png"><span>Player</span></td>
+    <td><sup>TW</sup>$1</td></tr>
+    """
+    page = parse_page(
+        snapshot_from_html(html),
+        requested_season="2026-27",
+        imported_at=IMPORTED_AT,
+    )
+    assert page.rows[0]["team_logo_url"] == (
+        "https://www.hoopshype.com/sports2/nba/logos/12.png"
+    )
+    assert page.rows[0]["team_logo_asset_id"] == 12
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "javascript:alert(1)",
+        "data:image/png;base64,AAAA",
+        "ftp://cdn.example.test/sports2/nba/logos/9.png",
+        "https:///sports2/nba/logos/9.png",
+        "//",
+        "https://user:secret@cdn.example.test/sports2/nba/logos/9.png",
+        "https://cdn.example.test/sports2/nba/logos/logo with space.png",
+        "\\\\cdn.example.test\\sports2\\nba\\logos\\9.png",
+        "https://[invalid/sports2/nba/logos/9.png",
+    ],
+)
+def test_unsafe_or_nonpublic_team_logo_urls_fail_actionably(source: str) -> None:
+    row = _row("Invalid Logo")
+    row["team_logo_url"] = source
+    with pytest.raises(SourceStructureError, match="Invalid team logo URL.*row 1"):
+        _collect(_snapshot(1, 1, rows=[row]))
 
 
 def test_repeated_identities_names_values_logos_and_markers_remain_distinct() -> None:
@@ -426,15 +496,15 @@ def test_incomplete_collection_preserves_existing_artifact(tmp_path: Path) -> No
     assert output.read_text() == "prior valid artifact"
 
 
-def test_atomic_writer_failure_leaves_no_final_or_temporary_file(
+def test_exclusive_writer_failure_leaves_no_final_or_temporary_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     output = tmp_path / "artifact.json"
 
-    def fail_replace(source: Path, destination: Path) -> None:
+    def fail_link(source: PathLike[str], destination: PathLike[str]) -> None:
         raise OSError("injected")
 
-    monkeypatch.setattr("nba_commish.hoopshype.artifact.os.replace", fail_replace)
+    monkeypatch.setattr("nba_commish.hoopshype.artifact.os.link", fail_link)
     with pytest.raises(ArtifactWriteError, match="atomically"):
         write_artifact_atomic(output, {"metadata": {}, "data": []})
     assert not output.exists()
@@ -447,3 +517,21 @@ def test_existing_artifact_is_never_replaced(tmp_path: Path) -> None:
     with pytest.raises(ArtifactWriteError, match="already exists"):
         write_artifact_atomic(output, {"metadata": {}, "data": []})
     assert output.read_text() == "prior valid artifact"
+
+
+def test_destination_created_at_publication_boundary_is_never_replaced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "artifact.json"
+    real_link = link
+
+    def racing_link(source: PathLike[str], destination: PathLike[str]) -> None:
+        Path(destination).write_text("prior valid artifact")
+        real_link(source, destination)
+
+    monkeypatch.setattr("nba_commish.hoopshype.artifact.os.link", racing_link)
+    with pytest.raises(ArtifactWriteError, match="appeared.*not replaced"):
+        write_artifact_atomic(output, {"metadata": {}, "data": []})
+
+    assert output.read_text() == "prior valid artifact"
+    assert list(tmp_path.iterdir()) == [output]

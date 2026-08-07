@@ -87,13 +87,13 @@ def write_artifact_atomic(path: Path, artifact: dict[str, Any]) -> Path:
             output.write(payload)
             output.flush()
             os.fsync(output.fileno())
-        if path.exists():
-            raise ArtifactWriteError(
-                f"Output artifact appeared during publication and was not replaced: {path}."
-            )
-        os.replace(temporary_path, path)
+        os.link(temporary_path, path)
     except ArtifactWriteError:
         raise
+    except FileExistsError as error:
+        raise ArtifactWriteError(
+            f"Output artifact appeared during exclusive publication and was not replaced: {path}."
+        ) from error
     except OSError as error:
         raise ArtifactWriteError(
             f"Could not publish the output artifact atomically: {path}."
