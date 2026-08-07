@@ -91,6 +91,63 @@ normalizes to integer zero. Any other syntax, including a marker combined with
 an amount such as `TW$678,882`, is malformed and raises a contextual salary
 parse error instead of becoming null, zero, or a best-effort number.
 
+### Salary-row fingerprinting and deduplication
+
+Fingerprint version 1 is a persisted compatibility contract. Its public form
+is `hoopshype-row-v1:sha256:<64 lowercase hex characters>`. SHA-256 receives
+the domain prefix `nba-commish/hoopshype-row-fingerprint/v1\0` followed by a
+canonical binary payload in which every value has a type tag and an unsigned
+eight-byte length prefix. Integers use exact unsigned big-endian bytes, not
+decimal text or floating point. Field names and sequence structure are encoded,
+so the payload does not depend on delimiters, mapping insertion order, platform
+serialization, locale, page order, or Python's randomized object hash.
+
+The version-1 payload contains exactly:
+
+- `target_season`;
+- one player discriminator, using `player_id`, otherwise nonempty
+  `player_url`, otherwise `player_display_text`;
+- one team discriminator, using `team_logo_asset_id`, otherwise the required
+  full `team_logo_url`;
+- nullable `target_season_salary_dollars`;
+- the canonical target marker;
+- the canonical nullable source-row description; and
+- every retained salary-season cell, sorted by heading and encoded as its
+  heading, normalized nullable dollars, and canonical marker.
+
+Stable numeric player and logo-asset IDs take precedence over presentation
+fields. URL fallbacks discard query and fragment and lowercase only scheme and
+host; paths remain exact. Display-name fallback uses Unicode NFC, collapses
+surrounding/internal Unicode whitespace, and case-folds. Descriptions use NFC
+and whitespace collapse but preserve case, punctuation, and diacritics;
+`None`, empty, and whitespace-only descriptions share one typed null. Markers
+use NFC and surrounding-whitespace removal only. Their case, punctuation,
+diacritics, internal whitespace, and unknown content remain evidence rather
+than receiving contract meaning.
+
+Salary strings are canonicalized exclusively by the salary parser above, so
+currency punctuation is cosmetic, all explicit null sentinels share one typed
+null, and zero remains distinct from null. Retained headings must be unique,
+consecutive ASCII `yyyy-yy` values. Retained display order is cosmetic, but any
+heading, normalized amount, or marker difference changes the fingerprint.
+Rank, page/row position, locator, import time, stable-ID player presentation,
+and stable-asset logo presentation are intentionally excluded. No other
+punctuation, diacritic, path, identity, description, marker, team, contract, or
+salary evidence is discarded or inferred.
+
+Ordered deduplication retains the first-seen row for each canonical group and
+adds only `source_row_fingerprint` to its deep copy. It also returns one
+ordered occurrence for every physical input row with the fingerprint,
+representative input position, locator, import time, page, row, and rank. Thus
+repeat imports do not increase the unique salary-row count while every source
+presentation remains reviewable. Equal digests are compared by canonical
+payload; a digest collision between different payloads fails the entire call.
+
+Canonical equality cannot prove that two indistinguishable source rows
+represent the same real-world contract. Collapsed presentations must therefore
+remain auditable through their occurrence trail; applicability and contract
+interpretation belong to later review work.
+
 ## Yahoo configuration
 
 Yahoo credentials are loaded from the process environment through the typed

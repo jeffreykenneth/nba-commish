@@ -23,3 +23,15 @@ class ArtifactWriteError(HoopshypeImportError):
 
 class SalaryParseError(HoopshypeImportError):
     """Raised for expected salary grammar or row-context validation failures."""
+
+
+class FingerprintError(HoopshypeImportError):
+    """Base class for expected fingerprint and deduplication failures."""
+
+
+class FingerprintValidationError(FingerprintError):
+    """Raised when normalized row evidence cannot be fingerprinted safely."""
+
+
+class FingerprintCollisionError(FingerprintError):
+    """Raised when equal digests correspond to different canonical payloads."""
