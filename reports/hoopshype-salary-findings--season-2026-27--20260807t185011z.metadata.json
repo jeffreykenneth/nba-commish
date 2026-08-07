@@ -1,0 +1,12 @@
+{
+  "source_system": "hoopshype",
+  "source_locator": "data/raw/hoopshype/nba-salary-source--season-2026-27--20260807t184848z.html and https://www.hoopshype.com/salaries/players/",
+  "retrieved_at": null,
+  "generated_at": "2026-08-07T18:50:11Z",
+  "source_event_time": null,
+  "season": "2026-27",
+  "league_scope": null,
+  "artifact_version": "1.0",
+  "schema_version": "1.0",
+  "redaction_status": "public-source-reviewed"
+}

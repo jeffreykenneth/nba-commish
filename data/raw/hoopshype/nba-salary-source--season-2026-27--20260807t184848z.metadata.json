@@ -1,0 +1,12 @@
+{
+  "source_system": "hoopshype",
+  "source_locator": "https://www.hoopshype.com/salaries/players/ (2026-27 season, All salaries, rendered table pages 1-27; reviewed verbatim element subset)",
+  "retrieved_at": "2026-08-07T18:48:48Z",
+  "generated_at": null,
+  "source_event_time": null,
+  "season": "2026-27",
+  "league_scope": null,
+  "artifact_version": "1.0",
+  "schema_version": "1.0",
+  "redaction_status": "public-source-reviewed"
+}
