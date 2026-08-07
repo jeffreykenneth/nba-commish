@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,11 @@ FIXTURE = (
     / "hoopshype-salary-table--season-2026-27--20260807t201407z.html"
 )
 IMPORTED_AT = "2026-08-07T20:00:00Z"
+LONG_UNGROUPED = "9" * 4_301
+LONG_UNGROUPED_EXPECTED = (10**4_301) - 1
+LONG_GROUP_COUNT = 1_433
+LONG_GROUPED = "$12," + ",".join(["000"] * (LONG_GROUP_COUNT - 1) + ["007"])
+LONG_GROUPED_EXPECTED = 12 * (10 ** (3 * LONG_GROUP_COUNT)) + 7
 
 
 @pytest.mark.parametrize(
@@ -49,6 +55,28 @@ def test_parse_salary_text_accepts_exact_whole_dollars(
     assert result == expected
     assert isinstance(result, int)
     assert not isinstance(result, bool)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (LONG_UNGROUPED, LONG_UNGROUPED_EXPECTED),
+        (LONG_GROUPED, LONG_GROUPED_EXPECTED),
+    ],
+    ids=["ungrouped-4301", "grouped-4301"],
+)
+def test_valid_4301_digit_amounts_bypass_python_string_conversion_limit(
+    source: str, expected: int
+) -> None:
+    result = parse_salary_text(source)
+    assert result == expected
+    assert isinstance(result, int)
+
+
+def test_long_conversion_does_not_change_process_digit_limit() -> None:
+    before = sys.get_int_max_str_digits()
+    parse_salary_text(LONG_UNGROUPED)
+    assert sys.get_int_max_str_digits() == before
 
 
 @pytest.mark.parametrize(
@@ -221,6 +249,60 @@ def test_collection_returns_no_partial_result_for_a_malformed_row() -> None:
 
     with pytest.raises(SalaryParseError, match="source row 2"):
         normalize_salary_rows(rows)
+    assert rows == before
+    assert all("target_season_salary_dollars" not in row for row in rows)
+
+
+def test_long_values_normalize_exactly_without_mutating_rows() -> None:
+    rows = [
+        _raw_row(
+            source_page_number=7,
+            source_row_position=10,
+            target_season_salary_text=LONG_UNGROUPED,
+        ),
+        _raw_row(
+            source_page_number=7,
+            source_row_position=11,
+            target_season_salary_text=LONG_GROUPED,
+        ),
+    ]
+    before = deepcopy(rows)
+
+    normalized = normalize_salary_rows(rows)
+
+    assert rows == before
+    assert [row["target_season_salary_dollars"] for row in normalized] == [
+        LONG_UNGROUPED_EXPECTED,
+        LONG_GROUPED_EXPECTED,
+    ]
+
+
+def test_long_malformed_collection_error_is_contextual() -> None:
+    malformed = LONG_UNGROUPED + "x"
+    rows = [
+        _raw_row(
+            source_page_number=7,
+            source_row_position=10,
+            target_season_salary_text=LONG_UNGROUPED,
+        ),
+        _raw_row(
+            source_page_number=7,
+            source_row_position=11,
+            player_display_text="Synthetic Player",
+            target_season_salary_text=malformed,
+        ),
+    ]
+    before = deepcopy(rows)
+
+    with pytest.raises(SalaryParseError) as failure:
+        normalize_salary_rows(rows)
+
+    message = str(failure.value)
+    assert "target_season_salary_text" in message
+    assert "source page 7" in message
+    assert "source row 11" in message
+    assert "Synthetic Player" in message
+    assert malformed not in message
     assert rows == before
     assert all("target_season_salary_dollars" not in row for row in rows)
 

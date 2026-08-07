@@ -11,6 +11,8 @@ from nba_commish.hoopshype.errors import SalaryParseError
 _AMOUNT_PATTERN = re.compile(r"^\$?(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)$")
 _NO_SALARY_SENTINELS = {"", "-", "–", "—"}
 _NA_PATTERN = re.compile(r"^N/A$", flags=re.ASCII | re.IGNORECASE)
+_DECIMAL_CHUNK_DIGITS = 9
+_DECIMAL_CHUNK_BASE = 1_000_000_000
 
 
 def parse_salary_text(value: str) -> int | None:
@@ -37,7 +39,7 @@ def parse_salary_text(value: str) -> int | None:
         )
 
     number = token.removeprefix("$")
-    return int(number.replace(",", ""), 10)
+    return _ascii_digits_to_int(number.replace(",", ""))
 
 
 def normalize_salary_row(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -91,6 +93,19 @@ def _required_positive_integer(row: Mapping[str, Any], field: str) -> int:
             f"Invalid {field} for target_season_salary_text row context: "
             "expected a positive integer."
         )
+    return value
+
+
+def _ascii_digits_to_int(digits: str) -> int:
+    """Convert validated ASCII digits without the process-wide string limit."""
+
+    first_chunk_length = len(digits) % _DECIMAL_CHUNK_DIGITS
+    if first_chunk_length == 0:
+        first_chunk_length = _DECIMAL_CHUNK_DIGITS
+    value = int(digits[:first_chunk_length], 10)
+    for start in range(first_chunk_length, len(digits), _DECIMAL_CHUNK_DIGITS):
+        chunk = digits[start : start + _DECIMAL_CHUNK_DIGITS]
+        value = value * _DECIMAL_CHUNK_BASE + int(chunk, 10)
     return value
 
 
