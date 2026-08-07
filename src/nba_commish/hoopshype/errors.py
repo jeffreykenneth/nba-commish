@@ -19,3 +19,7 @@ class BrowserCollectionError(HoopshypeImportError):
 
 class ArtifactWriteError(HoopshypeImportError):
     """Raised when the final artifact cannot be published safely."""
+
+
+class SalaryParseError(HoopshypeImportError):
+    """Raised for expected salary grammar or row-context validation failures."""

@@ -68,6 +68,29 @@ response bodies or session material. Live salary data changes independently of
 this repository, so page counts and row counts must be read from each completed
 artifact and must never be hard-coded from an earlier capture.
 
+### Salary-text normalization
+
+Raw imports keep `target_season_salary_text` and
+`target_season_marker_text` exactly as displayed. Normalization is a separate
+in-memory step that copies each row and adds
+`target_season_salary_dollars`, whose value is a whole-dollar Python `int` or
+`None`. It never rewrites the source text or marker and never assigns contract
+meaning to markers such as `P`, `T`, `Q`, or `TW`.
+
+Accepted amounts use an optional leading ASCII dollar sign followed by either
+ungrouped ASCII digits (`12500000`) or correctly comma-grouped ASCII digits
+(`$12,500,000`). Surrounding Unicode whitespace is ignored, but whitespace
+inside the token is invalid. Conversion uses base-10 integers only—salary
+amounts are never represented as floating point, so values larger than
+JavaScript's exact-integer range remain exact.
+
+After surrounding whitespace is removed, only an empty string, `-`, en dash
+`–`, em dash `—`, or ASCII-case-insensitive `N/A` means an explicit no-salary
+value and normalizes to `None`. That null result is different from `$0`, which
+normalizes to integer zero. Any other syntax, including a marker combined with
+an amount such as `TW$678,882`, is malformed and raises a contextual salary
+parse error instead of becoming null, zero, or a best-effort number.
+
 ## Yahoo configuration
 
 Yahoo credentials are loaded from the process environment through the typed
