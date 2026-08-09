@@ -5,6 +5,8 @@ import hashlib
 import io
 import json
 import os
+import subprocess
+import sys
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -393,6 +395,60 @@ def test_missing_sidecar_and_row_errors_accumulate_metadata_then_row() -> None:
         "player_display_text",
         "player_id",
     ]
+
+
+def test_invalid_selected_season_does_not_gate_independent_row_validation() -> None:
+    with pytest.raises(CsvFallbackValidationError) as failure:
+        _parse(
+            [_record(player_id="bad-id")],
+            selected_season="2026-28",
+        )
+
+    assert [
+        (item.location, item.record_number, item.field, item.code)
+        for item in failure.value.diagnostics
+    ] == [
+        ("metadata", None, "selected_season", "invalid_season"),
+        ("row", 1, "player_id", "invalid_unsigned_integer"),
+    ]
+
+
+def test_invalid_selected_season_accumulates_metadata_file_and_rows_in_order() -> None:
+    file_diagnostic = fallback.CsvFallbackDiagnostic(
+        location="file",
+        field="input_storage",
+        code="outside_private",
+        message="production commissioner CSV must stay under ignored data/private",
+    )
+    with pytest.raises(CsvFallbackValidationError) as failure:
+        _parse(
+            [
+                _record(player_id="bad-id", team_logo_url="relative/logo.png"),
+                _record(team_logo_asset_id="1,000"),
+            ],
+            metadata_bytes=_metadata(artifact_version="2.0"),
+            selected_season="not-a-season",
+            initial_diagnostics=(file_diagnostic,),
+        )
+
+    assert [item.location for item in failure.value.diagnostics] == [
+        "metadata",
+        "metadata",
+        "file",
+        "row",
+        "row",
+        "row",
+    ]
+    assert [
+        (item.record_number, item.field, item.code)
+        for item in failure.value.diagnostics
+        if item.location == "row"
+    ] == [
+        (1, "player_id", "invalid_unsigned_integer"),
+        (1, "team_logo_url", "invalid_url"),
+        (2, "team_logo_asset_id", "invalid_unsigned_integer"),
+    ]
+    assert not any(item.code == "season_mismatch" for item in failure.value.diagnostics)
 
 
 def test_missing_extra_and_wrong_production_metadata_fields_accumulate() -> None:
@@ -1339,6 +1395,113 @@ def test_cli_failure_prints_complete_sanitized_report_without_traceback(
     assert "PRIVATE" not in captured.err
     assert "Traceback" not in captured.err
     assert not output.exists()
+
+
+def test_cli_invalid_selected_season_reports_all_independent_row_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    invalid = _csv_bytes(
+        [
+            _record(
+                player_id="PRIVATE-invalid",
+                team_logo_url="PRIVATE-relative-logo",
+            ),
+            _record(team_logo_asset_id="PRIVATE-invalid"),
+        ]
+    )
+    input_path, metadata_path, input_bytes, metadata_bytes = _prepare_production_paths(
+        tmp_path,
+        monkeypatch,
+        csv_bytes=invalid,
+    )
+    output = tmp_path / "commissioner-derived--season-2026-27--20260807t221600z.json"
+
+    assert (
+        cli_main(
+            [
+                "--input",
+                str(input_path),
+                "--season",
+                "2026-28",
+                "--output",
+                str(output),
+            ]
+        )
+        == 1
+    )
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.count("field selected_season") == 0
+    assert captured.err.count("metadata selected_season") == 1
+    assert captured.err.count("CSV data record 1, field player_id") == 1
+    assert captured.err.count("CSV data record 1, field team_logo_url") == 1
+    assert captured.err.count("CSV data record 2, field team_logo_asset_id") == 1
+    assert "must equal CLI and sidecar season" not in captured.err
+    assert "PRIVATE" not in captured.err
+    assert "Traceback" not in captured.err
+    assert not output.exists()
+    assert not list(tmp_path.glob(f".{output.name}.*.tmp"))
+    assert input_path.read_bytes() == input_bytes
+    assert metadata_path.read_bytes() == metadata_bytes
+
+
+def test_actual_cli_invalid_season_accumulates_rows_without_publication(
+    tmp_path: Path,
+) -> None:
+    input_path = tmp_path / "commissioner-salary--season-2026-27--20260807t220000z.csv"
+    metadata_path = input_path.with_suffix(".metadata.json")
+    output = tmp_path / "commissioner-derived--season-2026-27--20260807t221600z.json"
+    input_bytes = _csv_bytes(
+        [
+            _record(player_id="PRIVATE-invalid", team_logo_url="relative/logo.png"),
+            _record(team_logo_asset_id="1,000"),
+        ]
+    )
+    metadata_bytes = _metadata()
+    input_path.write_bytes(input_bytes)
+    metadata_path.write_bytes(metadata_bytes)
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "nba_commish.hoopshype_csv_import",
+            "--input",
+            str(input_path),
+            "--season",
+            "2026-28",
+            "--output",
+            str(output),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 1
+    assert completed.stdout == ""
+    assert completed.stderr.count("metadata selected_season") == 1
+    assert completed.stderr.count("file input_storage") == 1
+    assert completed.stderr.count("file output_storage") == 1
+    assert completed.stderr.count("CSV data record 1, field player_id") == 1
+    assert completed.stderr.count("CSV data record 1, field team_logo_url") == 1
+    assert completed.stderr.count("CSV data record 2, field team_logo_asset_id") == 1
+    assert completed.stderr.index("metadata selected_season") < completed.stderr.index(
+        "file input_storage"
+    )
+    assert completed.stderr.index("file output_storage") < completed.stderr.index(
+        "CSV data record 1, field player_id"
+    )
+    assert "must equal CLI and sidecar season" not in completed.stderr
+    assert "PRIVATE" not in completed.stderr
+    assert "Traceback" not in completed.stderr
+    assert not output.exists()
+    assert not list(tmp_path.glob(f".{output.name}.*.tmp"))
+    assert input_path.read_bytes() == input_bytes
+    assert metadata_path.read_bytes() == metadata_bytes
 
 
 def test_success_and_failure_leave_all_in_memory_inputs_deeply_unchanged() -> None:

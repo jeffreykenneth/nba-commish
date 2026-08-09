@@ -518,7 +518,8 @@ def _parse_csv_evidence(
 ) -> CommissionerCsvImport:
     diagnostics = list(initial_diagnostics)
     selected_valid = _validate_selected_season(selected_season, diagnostics)
-    if not _is_utc_timestamp(imported_at):
+    imported_at_valid = _is_utc_timestamp(imported_at)
+    if not imported_at_valid:
         diagnostics.append(
             _diagnostic(
                 "file",
@@ -536,19 +537,22 @@ def _parse_csv_evidence(
     records = _validate_csv_file(csv_bytes, diagnostics)
 
     normalized_rows: list[dict[str, Any]] = []
-    if records is not None and selected_valid and _is_utc_timestamp(imported_at):
+    if records is not None:
         source_locator = (
             metadata.get("source_locator")
             if metadata is not None and _is_safe_locator(metadata.get("source_locator"))
             else "commissioner salary CSV"
         )
+        validation_imported_at = (
+            imported_at if imported_at_valid else "1970-01-01T00:00:00Z"
+        )
         for record_number, record in enumerate(records, start=1):
             normalized = _validate_record(
                 record,
                 record_number=record_number,
-                selected_season=selected_season,
+                selected_season=selected_season if selected_valid else None,
                 source_locator=source_locator,
-                imported_at=imported_at,
+                imported_at=validation_imported_at,
                 diagnostics=diagnostics,
             )
             if normalized is not None:
@@ -1067,7 +1071,7 @@ def _validate_record(
     record: list[str],
     *,
     record_number: int,
-    selected_season: str,
+    selected_season: str | None,
     source_locator: str,
     imported_at: str,
     diagnostics: list[CsvFallbackDiagnostic],
@@ -1181,7 +1185,7 @@ def _validate_record(
                 record_number=record_number,
             )
         )
-    elif row_season != selected_season:
+    elif selected_season is not None and row_season != selected_season:
         diagnostics.append(
             _diagnostic(
                 "row",
