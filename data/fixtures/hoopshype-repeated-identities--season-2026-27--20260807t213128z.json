@@ -1,0 +1,104 @@
+{
+  "metadata": {
+    "source_system": "hoopshype",
+    "source_locator": "reports/hoopshype-salary-findings--season-2026-27--20260807t185011z.md (issue #18 reviewed repeated-identities report; identified rows also cite its reviewed raw capture)",
+    "retrieved_at": null,
+    "generated_at": "2026-08-07T21:31:28Z",
+    "source_event_time": null,
+    "season": "2026-27",
+    "league_scope": null,
+    "artifact_version": "1.0",
+    "schema_version": "1.0",
+    "redaction_status": "public-source-reviewed"
+  },
+  "data": [
+    {
+      "source_page_number": 5,
+      "rank_text": "83",
+      "player_display_text": "Damian Lillard",
+      "player_id": 463121,
+      "team_logo_asset_id": 15,
+      "target_season_salary_text": "$22,516,603",
+      "target_season_marker_text": "",
+      "evidence_limited_classification": "distinct_source_row",
+      "reviewed_capture_locator": "data/raw/hoopshype/nba-salary-source--season-2026-27--20260807t184848z.html"
+    },
+    {
+      "source_page_number": 8,
+      "rank_text": "142",
+      "player_display_text": "Damian Lillard",
+      "player_id": 463121,
+      "team_logo_asset_id": 22,
+      "target_season_salary_text": "$13,398,800",
+      "target_season_marker_text": "",
+      "evidence_limited_classification": "distinct_source_row_purpose_unclassified",
+      "reviewed_capture_locator": "data/raw/hoopshype/nba-salary-source--season-2026-27--20260807t184848z.html"
+    },
+    {
+      "source_page_number": 6,
+      "rank_text": "105",
+      "player_display_text": "K. Caldwell-Pope",
+      "player_id": 602730,
+      "team_logo_asset_id": 29,
+      "target_season_salary_text": "$17,744,971",
+      "target_season_marker_text": "",
+      "evidence_limited_classification": "distinct_source_row",
+      "reviewed_capture_locator": null
+    },
+    {
+      "source_page_number": 15,
+      "rank_text": "T299",
+      "player_display_text": "K. Caldwell-Pope",
+      "player_id": 602730,
+      "team_logo_asset_id": 20,
+      "target_season_salary_text": "$3,876,529",
+      "target_season_marker_text": "",
+      "evidence_limited_classification": "distinct_source_row_purpose_unclassified",
+      "reviewed_capture_locator": null
+    },
+    {
+      "source_page_number": 20,
+      "rank_text": "T396",
+      "player_display_text": "O. Prosper",
+      "player_id": 1232483,
+      "team_logo_asset_id": 29,
+      "target_season_salary_text": "$2,497,812",
+      "target_season_marker_text": "",
+      "evidence_limited_classification": "distinct_source_row",
+      "reviewed_capture_locator": null
+    },
+    {
+      "source_page_number": 23,
+      "rank_text": "459",
+      "player_display_text": "O. Prosper",
+      "player_id": 1232483,
+      "team_logo_asset_id": 6,
+      "target_season_salary_text": "$1,002,360",
+      "target_season_marker_text": "",
+      "evidence_limited_classification": "distinct_source_row_purpose_unclassified",
+      "reviewed_capture_locator": null
+    },
+    {
+      "source_page_number": 23,
+      "rank_text": "458",
+      "player_display_text": "Kam Jones",
+      "player_id": 1324173,
+      "team_logo_asset_id": 4,
+      "target_season_salary_text": "$1,075,459",
+      "target_season_marker_text": "",
+      "evidence_limited_classification": "distinct_source_row",
+      "reviewed_capture_locator": "data/raw/hoopshype/nba-salary-source--season-2026-27--20260807t184848z.html"
+    },
+    {
+      "source_page_number": 25,
+      "rank_text": "T462",
+      "player_display_text": "Kam Jones",
+      "player_id": 1324173,
+      "team_logo_asset_id": 15,
+      "target_season_salary_text": "$678,882",
+      "target_season_marker_text": "TW",
+      "evidence_limited_classification": "distinct_source_row_explicit_two_way_marker",
+      "reviewed_capture_locator": "data/raw/hoopshype/nba-salary-source--season-2026-27--20260807t184848z.html"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "source_system": "synthetic",
+  "source_locator": "synthetic commissioner salary CSV fixture",
+  "retrieved_at": null,
+  "generated_at": "2026-08-07T22:10:00Z",
+  "source_event_time": null,
+  "season": "2026-27",
+  "league_scope": null,
+  "artifact_version": "1.0",
+  "schema_version": "1.0",
+  "redaction_status": "synthetic"
+}
